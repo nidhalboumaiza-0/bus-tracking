@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  username  String    @unique
+  password  String
+  fullName  String
+  role      Role
+  createdAt DateTime  @default(now())
+  requests  Request[]
+}
+
+enum Role {
+  ADMIN
+  YAZAKI
+  SRTG
+}
+
+model Bus {
+  id               Int          @id @default(autoincrement())
+  busNumber        String       @unique
+  busType          String
+  capacity         Int
+  isActive         Boolean      @default(true)
+  assignedDriverId Int?         @unique
+  assignedDriver   Driver?      @relation("BusDriver", fields: [assignedDriverId], references: [id], onDelete: SetNull)
+  assignments      Assignment[]
+}
+
+model Driver {
+  id          Int          @id @default(autoincrement())
+  matricule   String       @unique
+  fullName    String
+  phone       String
+  isActive    Boolean      @default(true)
+  assignedBus Bus?         @relation("BusDriver")
+  assignments Assignment[]
+}
+
+model Request {
+  id        Int            @id @default(autoincrement())
+  userId    Int
+  user      User           @relation(fields: [userId], references: [id])
+  date      DateTime
+  status    RequestStatus  @default(PENDING)
+  createdAt DateTime       @default(now())
+  lines     RequestLine[]
+  planning  Planning?
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model RequestLine {
+  id            Int          @id @default(autoincrement())
+  requestId     Int
+  request       Request      @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  station       String
+  numberOfBuses Int
+  busType       String
+  shuttleTime   String
+  assignments   Assignment[]
+}
+
+model Planning {
+  id          Int          @id @default(autoincrement())
+  requestId   Int          @unique
+  request     Request      @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  date        DateTime
+  status      PlanningStatus @default(DRAFT)
+  createdAt   DateTime     @default(now())
+  assignments Assignment[]
+}
+
+enum PlanningStatus {
+  DRAFT
+  CONFIRMED
+}
+
+model Assignment {
+  id            Int         @id @default(autoincrement())
+  planningId    Int
+  planning      Planning    @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  requestLineId Int
+  requestLine   RequestLine @relation(fields: [requestLineId], references: [id], onDelete: Cascade)
+  busId         Int
+  bus           Bus         @relation(fields: [busId], references: [id])
+  driverId      Int
+  driver        Driver      @relation(fields: [driverId], references: [id])
+  confirmed     Boolean     @default(false)
+  revenue       Revenue?
+}
+
+model Tariff {
+  id            Int      @id @default(autoincrement())
+  destination   String
+  busType       String
+  pricePerTrip  Float
+  effectiveDate DateTime @default(now())
+
+  @@unique([destination, busType])
+}
+
+model Revenue {
+  id           Int        @id @default(autoincrement())
+  assignmentId Int        @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  date         DateTime
+  amount       Float
+  createdAt    DateTime   @default(now())
+}
